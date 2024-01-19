@@ -29,7 +29,6 @@ const loadmap = async () => {
       document.getElementById("container").style.display = "flex"
       document.getElementById("panorama").style.display = "flex"
 
-
       await loadPano(e._geojson.geometry.coordinates[1], e._geojson.geometry.coordinates[0]);
 
     });
@@ -72,7 +71,7 @@ const loadPano = async (lat, lon) => {
         {
           title: 'test',
           icon: {
-            html: '<img src="/marker.png" style="width: 3rem">',
+            html: '<img src="/streetview/marker.png" style="width: 3rem">',
             offset: { x: 0, y: -30 }
           }
         });
@@ -92,62 +91,15 @@ const loadPano = async (lat, lon) => {
             { lon: imageStore.images[i].lon, lat: imageStore.images[i].lat },
           ])
 
-          // await map.Overlays.add(polyline)
           const length = parseFloat(polyline.size('th').split(' ')[0] / 1000)
-          // console.log(length)
           if (length < min_length) {
             min_length = length
             index = i
           }
         }
       }
-      // console.log(min_length, index)
+
       await map.goTo({ center: { lon: Number(imageStore.images[index].lon) + 0.001, lat: imageStore.images[index].lat }, zoom: 18 });
-
-      var scene
-      for (let i = 0; i < imageStore.images.length; i++) {
-        if (imageStore.images[i].type === 'tour') {
-          scene = `{[${imageStore.images[i].id}]: {
-            "title": ${imageStore.images[i].name},
-            "yaw": ${imageStore.images[i].yaw},
-            "type": "equirectangular",
-            "panorama": ${imageStore.images[i].image},
-            "northOffset": ${imageStore.images[i].yaw} + 31,
-            "hotSpots": [`
-          if (i === 0 || imageStore.images.length - 1) {
-            scene += `{
-                "yaw": ${imageStore.images[i].yaw},
-                "type": "scene",
-                "text": ${imageStore.images[i].name},
-                "sceneId": ${imageStore.images[i].id},
-                "targetYaw": 0
-              }
-            }  
-            ]
-          }`
-          } else {
-            scene += `{
-                "yaw": ${imageStore.images[i+1].yaw},
-                "type": "scene",
-                "text": ${imageStore.images[i+1].name},
-                "sceneId": ${imageStore.images[i+1].id}
-              },
-              {
-                "yaw": 180 - ${imageStore.images[i-1].yaw},
-                "type": "scene",
-                "text": ${imageStore.images[i-1].name},
-                "sceneId": ${imageStore.images[i-1].id},
-                "targetYaw": 180,
-              }
-            }  
-            ]
-          }`
-          }
-
-        }
-      }
-
-      console.log(scene)
 
       viewer = pannellum.viewer('panorama', {
         "default": {
@@ -277,7 +229,7 @@ const loadPano = async (lat, lon) => {
             "title": `${imageStore.images[9].name}`,
             "yaw": imageStore.images[9].yaw,
             "type": "equirectangular",
-            "panorama": `${imageStore.images[9].id}`,
+            "panorama": `${imageStore.images[9].name}`,
             "northOffset": imageStore.images[7].yaw + 31,
             "hotSpots": [
               {
@@ -378,27 +330,11 @@ const pointmaker = async () => {
       {
         title: `${imageStore.images[i].name}`,
         icon: {
-          html: '<img src="/point.png" style="width: 1rem">'
+          html: '<img src="/streetview/point.png" style="width: 1rem">'
         }
       });
     await map.Overlays.add(marker);
   }
-}
-
-const linemaker = () => {
-  map.Overlays.remove(polyline);
-  var polyline = new sphere.Polyline([
-    { lon: 100.578743, lat: 13.845260 },
-    { lon: 100.578645, lat: 13.845097 },
-  ], {
-    title: 'Polyline',
-    detail: '-',
-    label: 'Polyline',
-    lineWidth: 6,
-    lineColor: 'rgba(50, 74, 225)'
-  });
-
-  map.Overlays.add(polyline);
 }
 
 const personmaker = async (lon, lat) => {
@@ -407,7 +343,7 @@ const personmaker = async (lon, lat) => {
     {
       title: 'point',
       icon: {
-        html: '<img src="/person.png" style="width: 3rem;">',
+        html: '<img src="/streetview/person.png" style="width: 3rem;">',
         offset: { x: 0, y: -10 }
       },
       draggable: true
@@ -416,32 +352,25 @@ const personmaker = async (lon, lat) => {
   await map.Overlays.add(marker2);
 }
 
-const normalmaker = async (lon, lat) => {
-  var marker
-  marker = new sphere.Marker({ lon: 100.07, lat: 13.5 },
-    {
-      title: 'Marker',
-      detail: 'Drag me'
-    });
-
-  await map.Overlays.add(marker);
-}
-
 const mapToggle = () => {
+  if (streetViewMode.value === false) {
+    document.getElementById('toast').style.display = "flex"
+  }
+  else {
+    document.getElementById('toast').style.display = "none"
+  }
+
   streetViewMode.value = !streetViewMode.value
 
   if (streetViewMode.value === true) {
     pointmaker()
-    // map.goTo({ center: { lon: Number(map_location.lon) - 0.0004, lat: map_location.lat }, zoom: 18 });
-    // linemaker()
   } else {
     map.Overlays.clear()
     document.getElementById("map").style.width = "100%"
     document.getElementById("container").style.display = "none"
-    // document.getElementById("controls").style.display = "none"
+    
     var map_location = map.location()
     console.log(map_location)
-    map.goTo({ center: { lon: Number(map_location.lon) - 0.001, lat: map_location.lat }, zoom: 18 });
   }
 }
 
@@ -454,9 +383,10 @@ onMounted(async () => {
 <template>
   <!-- map -->
   <div id="map">
-    <button class="person" @click="mapToggle"><img src="/person.png"></button>
+    <button class="person" @click="mapToggle"><img src="/streetview/person.png"></button>
     <div class="hidepoint">Start streetview!</div>
-    <button class="tour" @click="loadTour"><img src="/person.png"></button>
+    <div id="toast"><img src="/point.png">select a point where you want to see streetview</div>
+    <button class="tour" @click="loadTour"><img src="/streetview/person.png"></button>
     <div class="hidetour">Start tour!</div>
   </div>
   <!-- panorama -->
@@ -494,6 +424,11 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+* {
+  font-family: 'Kanit';
+  font-size: 12px;
+}
+
 #map {
   position: absolute;
   width: 100%;
@@ -505,6 +440,31 @@ onMounted(async () => {
 img {
   width: 36px;
   padding-top: 4px;
+}
+
+#toast {
+  position: absolute;
+  top: 0;
+  left: 4rem;
+  margin: 1rem;
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 14px;
+  color: rgb(72, 113, 130);
+  /* text-align: center; */
+  /* justify-content: center; */
+  display: none;
+  width: 360px;
+  background-color: rgb(255, 247, 216);
+  border: rgb(72, 113, 130) solid 3px;
+  z-index: 20;
+}
+
+#toast>img {
+  width: 12px;
+  height: 12px;
+  padding-right: 6px;
+  justify-content: center;
 }
 
 #panorama {
@@ -601,13 +561,15 @@ img {
 }
 
 .hidepoint {
-  padding: 1rem;
+  padding: 10px;
+  margin-right: 10px;
   z-index: 20;
   position: absolute;
   bottom: 7rem;
   right: 0;
   background-color: rgb(240, 246, 213);
   display: none;
+  font-size: 13px;
 }
 
 .person:hover+.hidepoint {
@@ -615,13 +577,15 @@ img {
 }
 
 .hidetour {
-  padding: 1rem;
+  padding: 10px;
+  margin-right: 10px;
   z-index: 20;
   position: absolute;
   bottom: 7rem;
   right: 2rem;
   background-color: rgb(226, 249, 228);
   display: none;
+  font-size: 13px;
 }
 
 .tour {
