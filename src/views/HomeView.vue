@@ -191,7 +191,7 @@ const loadPano = async (lat, lon) => {
                 "type": "scene",
                 "text": `${imageStore.images[6].name}`,
                 "sceneId": `${imageStore.images[6].id}`,
-                "targetYaw": 180,
+                "targetYaw": 180 - imageStore.images[6].yaw,
               },
               {
                 "yaw": imageStore.images[8].yaw,
@@ -217,7 +217,7 @@ const loadPano = async (lat, lon) => {
                 "targetYaw": imageStore.images[9].yaw,
               },
               {
-                "yaw": 180 - imageStore.images[7].yaw,
+                "yaw": 180,
                 "type": "scene",
                 "text": `${imageStore.images[7].name}`,
                 "sceneId": `${imageStore.images[7].id}`,
@@ -229,15 +229,15 @@ const loadPano = async (lat, lon) => {
             "title": `${imageStore.images[9].name}`,
             "yaw": imageStore.images[9].yaw,
             "type": "equirectangular",
-            "panorama": `${imageStore.images[9].name}`,
-            "northOffset": imageStore.images[7].yaw + 31,
+            "panorama": `${imageStore.images[9].image}`,
+            "northOffset": 31 + imageStore.images[7].yaw,
             "hotSpots": [
               {
                 "yaw": 180 - imageStore.images[8].yaw,
                 "type": "scene",
                 "text": `${imageStore.images[8].name}`,
                 "sceneId": `${imageStore.images[8].id}`,
-                "targetYaw": 180,
+                "targetYaw": 180 - imageStore.images[8].yaw,
               },
               {
                 "yaw": imageStore.images[10].yaw,
@@ -253,7 +253,7 @@ const loadPano = async (lat, lon) => {
             "yaw": imageStore.images[10].yaw,
             "type": "equirectangular",
             "panorama": `${imageStore.images[10].image}`,
-            "northOffset": (imageStore.images[10].yaw + 31),
+            "northOffset": (31 + imageStore.images[7].yaw + imageStore.images[10].yaw),
             "hotSpots": [
               {
                 "yaw": 180 - imageStore.images[9].yaw,
@@ -297,6 +297,12 @@ const loadPano = async (lat, lon) => {
       await viewer.setYaw(- viewer.getNorthOffset());
       console.log(viewer.getYaw())
     });
+    document.getElementById('close-panorama').addEventListener('click', async function (e) {
+      await viewer.destroy()
+      document.getElementById('map').style.width = "100%"
+      document.getElementById("container").style.display = "none"
+      await map.goTo({ center: { lon: lon, lat: lat }, zoom: 18 })
+    });
     console.log(viewer.getRenderer())
   } catch (error) {
     console.log(error)
@@ -304,22 +310,13 @@ const loadPano = async (lat, lon) => {
 }
 
 const loadTour = async () => {
-  // var image_source
-  // await map.goTo({ center: { lon: Number(lon) + 0.004, lat: lat }, zoom: 16 });
-  // for (let i = 0; i < imageStore.images.length; i++) {
-  //   if (lat === imageStore.images[i].lat && lon === imageStore.images[i].lon) {
-  //     image_source = imageStore.images[i].image
-  //   }
-  // }
+
   mode.value = 'tour'
   await map.goTo({ center: { lon: 100.578696, lat: 13.845183 }, zoom: 18 })
-  // await personmaker()
 
-  // linemaker()
   mapToggle()
 
   await map.goTo({ center: { lon: 100.578696, lat: 13.845183 }, zoom: 18 })
-
 
 }
 
@@ -368,7 +365,7 @@ const mapToggle = () => {
     map.Overlays.clear()
     document.getElementById("map").style.width = "100%"
     document.getElementById("container").style.display = "none"
-    
+
     var map_location = map.location()
     console.log(map_location)
   }
@@ -383,15 +380,16 @@ onMounted(async () => {
 <template>
   <!-- map -->
   <div id="map">
-    <button class="person" @click="mapToggle"><img src="/streetview/person.png"></button>
+    <button class="person" @click="mapToggle"><img src="/person.png"></button>
     <div class="hidepoint">Start streetview!</div>
     <div id="toast"><img src="/point.png">select a point where you want to see streetview</div>
-    <button class="tour" @click="loadTour"><img src="/streetview/person.png"></button>
+    <button class="tour" @click="loadTour"><img src="/person.png"></button>
     <div class="hidetour">Start tour!</div>
   </div>
   <!-- panorama -->
   <div id="container">
     <div id="panorama"></div>
+    <div class="close" id="close-panorama"><div class="ctrl">X</div></div>
     <div id="controls-container">
       <div id="controls">
         <div class="ctrl" id="pan-up">&#9650;
@@ -530,6 +528,13 @@ img {
   justify-content: center;
 }
 
+.close {
+  position: absolute;
+  right: 0;
+  margin: 10px;
+  display: flex;
+  z-index: 30;
+}
 
 /* .custom-hotspot {
   background-image: url('/point.png');
