@@ -16,10 +16,30 @@ const loadmap = async () => {
     })
     await map.goTo({ center: { lon: 100.928076, lat: 13.103024 }, zoom: 18 });
 
+    document.getElementById('container').addEventListener('mouseup', async function (e) {
+
+      var current_scene = viewer.getScene()
+      setTimeout(async () => {
+        var new_scene = viewer.getScene()
+
+        if (current_scene != new_scene) {
+          for (let i = 0; i < imageStore.images.length; i++) {
+            if (imageStore.images[i].id == new_scene) {
+              map.Overlays.clear();
+              await pointmaker()
+              await personmaker(imageStore.images[i].lon, imageStore.images[i].lat)
+              
+            }
+          }
+        }
+      }, 500)
+
+    });
     map.Event.bind(sphere.EventName.OverlayClick, async function (e) {
       map.Overlays.clear();
       if (viewer) {
-        console.log(viewer.getRenderer())
+        var load = await viewer.isLoaded()
+        console.log(load)
         await viewer.destroy()
         console.log('destroy')
       }
@@ -62,7 +82,8 @@ const loadPano = async (lat, lon) => {
         "compass": true,
         "showControls": false,
         "previewTitle": `${image_name}`,
-        "previewAuthor": 'earngqqw'
+        "previewAuthor": 'earngqqw',
+        "hotSpotDebug": true,
       });
 
       var point
@@ -111,7 +132,7 @@ const loadPano = async (lat, lon) => {
           "preview": 'preview',
           "previewTitle": `${imageStore.images[index].name}`,
           "showControls": false,
-          "northOffset": 31
+          "northOffset": 31,
         },
 
         "scenes": {
@@ -303,7 +324,6 @@ const loadPano = async (lat, lon) => {
       document.getElementById("container").style.display = "none"
       await map.goTo({ center: { lon: lon, lat: lat }, zoom: 18 })
     });
-    console.log(viewer.getRenderer())
   } catch (error) {
     console.log(error)
   }
@@ -361,6 +381,7 @@ const mapToggle = () => {
 
   if (streetViewMode.value === true) {
     pointmaker()
+
   } else {
     map.Overlays.clear()
     document.getElementById("map").style.width = "100%"
@@ -368,6 +389,7 @@ const mapToggle = () => {
 
     var map_location = map.location()
     console.log(map_location)
+    map.goTo({ center: { lon: Number(map_location.lon) - 0.001, lat: map_location.lat }, zoom: 18 });
   }
 }
 
@@ -388,8 +410,10 @@ onMounted(async () => {
   </div>
   <!-- panorama -->
   <div id="container">
-    <div id="panorama"></div>
-    <div class="close" id="close-panorama"><div class="ctrl">X</div></div>
+    <div id="panorama" @click=""></div>
+    <div class="close" id="close-panorama">
+      <div class="ctrl">X</div>
+    </div>
     <div id="controls-container">
       <div id="controls">
         <div class="ctrl" id="pan-up">&#9650;
