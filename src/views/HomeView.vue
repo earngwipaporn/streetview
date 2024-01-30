@@ -122,171 +122,175 @@ const loadPano = async (lat, lon) => {
 
       await map.goTo({ center: { lon: Number(imageStore.images[index].lon) + 0.001, lat: imageStore.images[index].lat }, zoom: 18 });
 
-      viewer = pannellum.viewer('panorama', {
-        "default": {
-          "firstScene": `${imageStore.images[index].id}`,
-          "sceneFadeDuration": 1000,
-          "autoLoad": true,
-          "author": "earngqqw",
-          "compass": true,
-          "preview": 'preview',
-          "previewTitle": `${imageStore.images[index].name}`,
-          "showControls": false,
-          "northOffset": 31,
-        },
+      var scene = await create_pano_json(index)
+      console.log(scene)
+      viewer = pannellum.viewer('panorama', scene
+      // {
+      //   "default": {
+      //     "firstScene": `${imageStore.images[index].id}`,
+      //     "sceneFadeDuration": 1000,
+      //     "autoLoad": true,
+      //     "author": "earngqqw",
+      //     "compass": true,
+      //     "preview": 'preview',
+      //     "previewTitle": `${imageStore.images[index].name}`,
+      //     "showControls": false,
+      //     "northOffset": 31,
+      //   },
 
-        "scenes": {
-          [imageStore.images[4].id]: {
-            "title": `${imageStore.images[4].name}`,
-            "yaw": imageStore.images[4].yaw,
-            "type": "equirectangular",
-            "panorama": `${imageStore.images[4].image}`,
-            "northOffset": imageStore.images[4].yaw + 31,
-            "hotSpots": [
-              {
-                "yaw": imageStore.images[5].yaw,
-                "type": "scene",
-                "text": `${imageStore.images[5].name}`,
-                "sceneId": `${imageStore.images[5].id}`
-              }
-            ]
-          },
+      //   "scenes": {
+      //     [imageStore.images[4].id]: {
+      //       "title": `${imageStore.images[4].name}`,
+      //       "yaw": imageStore.images[4].yaw,
+      //       "type": "equirectangular",
+      //       "panorama": `${imageStore.images[4].image}`,
+      //       "northOffset": imageStore.images[4].yaw + 31,
+      //       "hotSpots": [
+      //         {
+      //           "yaw": imageStore.images[5].yaw,
+      //           "type": "scene",
+      //           "text": `${imageStore.images[5].name}`,
+      //           "sceneId": `${imageStore.images[5].id}`
+      //         }
+      //       ]
+      //     },
 
-          [imageStore.images[5].id]: {
-            "title": `${imageStore.images[5].name}`,
-            "yaw": imageStore.images[5].yaw,
-            "type": "equirectangular",
-            "panorama": `${imageStore.images[5].image}`,
-            "northOffset": imageStore.images[5].yaw + 31,
-            "hotSpots": [
-              {
-                "yaw": imageStore.images[6].yaw,
-                "type": "scene",
-                "text": `${imageStore.images[6].name}`,
-                "sceneId": `${imageStore.images[6].id}`
-              },
-              {
-                "yaw": 180 - imageStore.images[4].yaw,
-                "type": "scene",
-                "text": `${imageStore.images[4].name}`,
-                "sceneId": `${imageStore.images[4].id}`,
-                "targetYaw": 180
-              }
+      //     [imageStore.images[5].id]: {
+      //       "title": `${imageStore.images[5].name}`,
+      //       "yaw": imageStore.images[5].yaw,
+      //       "type": "equirectangular",
+      //       "panorama": `${imageStore.images[5].image}`,
+      //       "northOffset": imageStore.images[5].yaw + 31,
+      //       "hotSpots": [
+      //         {
+      //           "yaw": imageStore.images[6].yaw,
+      //           "type": "scene",
+      //           "text": `${imageStore.images[6].name}`,
+      //           "sceneId": `${imageStore.images[6].id}`
+      //         },
+      //         {
+      //           "yaw": 180 - imageStore.images[4].yaw,
+      //           "type": "scene",
+      //           "text": `${imageStore.images[4].name}`,
+      //           "sceneId": `${imageStore.images[4].id}`,
+      //           "targetYaw": 180
+      //         }
 
-            ]
-          },
+      //       ]
+      //     },
 
-          [imageStore.images[6].id]: {
-            "title": `${imageStore.images[6].name}`,
-            "yaw": imageStore.images[6].yaw,
-            "type": "equirectangular",
-            "panorama": `${imageStore.images[6].image}`,
-            "northOffset": imageStore.images[6].yaw + 31,
-            "hotSpots": [
-              {
-                "yaw": 180 - imageStore.images[5].yaw,
-                "type": "scene",
-                "text": `${imageStore.images[5].name}`,
-                "sceneId": `${imageStore.images[5].id}`,
-                "targetYaw": 180,
-              },
-              {
-                "yaw": imageStore.images[7].yaw,
-                "type": "scene",
-                "text": `${imageStore.images[7].name}`,
-                "sceneId": `${imageStore.images[7].id}`,
-                "targetYaw": 0,
-              }
-            ]
-          },
+      //     [imageStore.images[6].id]: {
+      //       "title": `${imageStore.images[6].name}`,
+      //       "yaw": imageStore.images[6].yaw,
+      //       "type": "equirectangular",
+      //       "panorama": `${imageStore.images[6].image}`,
+      //       "northOffset": imageStore.images[6].yaw + 31,
+      //       "hotSpots": [
+      //         {
+      //           "yaw": 180 - imageStore.images[5].yaw,
+      //           "type": "scene",
+      //           "text": `${imageStore.images[5].name}`,
+      //           "sceneId": `${imageStore.images[5].id}`,
+      //           "targetYaw": 180,
+      //         },
+      //         {
+      //           "yaw": imageStore.images[7].yaw,
+      //           "type": "scene",
+      //           "text": `${imageStore.images[7].name}`,
+      //           "sceneId": `${imageStore.images[7].id}`,
+      //           "targetYaw": 0,
+      //         }
+      //       ]
+      //     },
 
-          [imageStore.images[7].id]: {
-            "title": `${imageStore.images[7].name}`,
-            "yaw": `${imageStore.images[7].yaw}`,
-            "type": "equirectangular",
-            "panorama": `${imageStore.images[7].image}`,
-            "northOffset": imageStore.images[7].yaw + 31,
-            "hotSpots": [
-              {
-                "yaw": 180 - imageStore.images[6].yaw,
-                "type": "scene",
-                "text": `${imageStore.images[6].name}`,
-                "sceneId": `${imageStore.images[6].id}`,
-                "targetYaw": 180 - imageStore.images[6].yaw,
-              },
-              {
-                "yaw": imageStore.images[8].yaw,
-                "type": "scene",
-                "text": `${imageStore.images[8].name}`,
-                "sceneId": `${imageStore.images[8].id}`,
-                "targetYaw": imageStore.images[8].yaw,
-              }
-            ]
-          },
-          [imageStore.images[8].id]: {
-            "title": `${imageStore.images[8].name}`,
-            "yaw": imageStore.images[8].yaw,
-            "type": "equirectangular",
-            "panorama": `${imageStore.images[8].image}`,
-            "northOffset": imageStore.images[7].yaw + 31,
-            "hotSpots": [
-              {
-                "yaw": imageStore.images[9].yaw,
-                "type": "scene",
-                "text": `${imageStore.images[9].name}`,
-                "sceneId": `${imageStore.images[9].id}`,
-                "targetYaw": imageStore.images[9].yaw,
-              },
-              {
-                "yaw": 180,
-                "type": "scene",
-                "text": `${imageStore.images[7].name}`,
-                "sceneId": `${imageStore.images[7].id}`,
-                "targetYaw": 180,
-              }
-            ]
-          },
-          [imageStore.images[9].id]: {
-            "title": `${imageStore.images[9].name}`,
-            "yaw": imageStore.images[9].yaw,
-            "type": "equirectangular",
-            "panorama": `${imageStore.images[9].image}`,
-            "northOffset": 31 + imageStore.images[7].yaw,
-            "hotSpots": [
-              {
-                "yaw": 180 - imageStore.images[8].yaw,
-                "type": "scene",
-                "text": `${imageStore.images[8].name}`,
-                "sceneId": `${imageStore.images[8].id}`,
-                "targetYaw": 180 - imageStore.images[8].yaw,
-              },
-              {
-                "yaw": imageStore.images[10].yaw,
-                "type": "scene",
-                "text": `${imageStore.images[10].name}`,
-                "sceneId": `${imageStore.images[10].id}`,
-                "targetYaw": 0,
-              }
-            ]
-          },
-          [imageStore.images[10].id]: {
-            "title": `${imageStore.images[10].name}`,
-            "yaw": imageStore.images[10].yaw,
-            "type": "equirectangular",
-            "panorama": `${imageStore.images[10].image}`,
-            "northOffset": (31 + imageStore.images[7].yaw + imageStore.images[10].yaw),
-            "hotSpots": [
-              {
-                "yaw": 180 - imageStore.images[9].yaw,
-                "type": "scene",
-                "text": `${imageStore.images[9].name}`,
-                "sceneId": `${imageStore.images[9].id}`,
-                "targetYaw": 180,
-              }
-            ]
-          }
-        }
-      });
+      //     [imageStore.images[7].id]: {
+      //       "title": `${imageStore.images[7].name}`,
+      //       "yaw": `${imageStore.images[7].yaw}`,
+      //       "type": "equirectangular",
+      //       "panorama": `${imageStore.images[7].image}`,
+      //       "northOffset": imageStore.images[7].yaw + 31,
+      //       "hotSpots": [
+      //         {
+      //           "yaw": 180 - imageStore.images[6].yaw,
+      //           "type": "scene",
+      //           "text": `${imageStore.images[6].name}`,
+      //           "sceneId": `${imageStore.images[6].id}`,
+      //           "targetYaw": 180 - imageStore.images[6].yaw,
+      //         },
+      //         {
+      //           "yaw": imageStore.images[8].yaw,
+      //           "type": "scene",
+      //           "text": `${imageStore.images[8].name}`,
+      //           "sceneId": `${imageStore.images[8].id}`,
+      //           "targetYaw": imageStore.images[8].yaw,
+      //         }
+      //       ]
+      //     },
+      //     [imageStore.images[8].id]: {
+      //       "title": `${imageStore.images[8].name}`,
+      //       "yaw": imageStore.images[8].yaw,
+      //       "type": "equirectangular",
+      //       "panorama": `${imageStore.images[8].image}`,
+      //       "northOffset": imageStore.images[7].yaw + 31,
+      //       "hotSpots": [
+      //         {
+      //           "yaw": imageStore.images[9].yaw,
+      //           "type": "scene",
+      //           "text": `${imageStore.images[9].name}`,
+      //           "sceneId": `${imageStore.images[9].id}`,
+      //           "targetYaw": imageStore.images[9].yaw,
+      //         },
+      //         {
+      //           "yaw": 180,
+      //           "type": "scene",
+      //           "text": `${imageStore.images[7].name}`,
+      //           "sceneId": `${imageStore.images[7].id}`,
+      //           "targetYaw": 180,
+      //         }
+      //       ]
+      //     },
+      //     [imageStore.images[9].id]: {
+      //       "title": `${imageStore.images[9].name}`,
+      //       "yaw": imageStore.images[9].yaw,
+      //       "type": "equirectangular",
+      //       "panorama": `${imageStore.images[9].image}`,
+      //       "northOffset": 31 + imageStore.images[7].yaw,
+      //       "hotSpots": [
+      //         {
+      //           "yaw": 180 - imageStore.images[8].yaw,
+      //           "type": "scene",
+      //           "text": `${imageStore.images[8].name}`,
+      //           "sceneId": `${imageStore.images[8].id}`,
+      //           "targetYaw": 180 - imageStore.images[8].yaw,
+      //         },
+      //         {
+      //           "yaw": imageStore.images[10].yaw,
+      //           "type": "scene",
+      //           "text": `${imageStore.images[10].name}`,
+      //           "sceneId": `${imageStore.images[10].id}`,
+      //           "targetYaw": 0,
+      //         }
+      //       ]
+      //     },
+      //     [imageStore.images[10].id]: {
+      //       "title": `${imageStore.images[10].name}`,
+      //       "yaw": imageStore.images[10].yaw,
+      //       "type": "equirectangular",
+      //       "panorama": `${imageStore.images[10].image}`,
+      //       "northOffset": (31 + imageStore.images[7].yaw + imageStore.images[10].yaw),
+      //       "hotSpots": [
+      //         {
+      //           "yaw": 180 - imageStore.images[9].yaw,
+      //           "type": "scene",
+      //           "text": `${imageStore.images[9].name}`,
+      //           "sceneId": `${imageStore.images[9].id}`,
+      //           "targetYaw": 180,
+      //         }
+      //       ]
+      //     }
+      //   }
+      // }
+      );
       await personmaker(lon, lat)
     }
 
@@ -393,9 +397,76 @@ const mapToggle = () => {
   }
 }
 
+const create_pano_json = (index) => {
+  var tours = imageStore.tours
+
+  var scene = `{"default": {"firstScene": ${tours[index].id},\
+\"sceneFadeDuration\": 1000,\
+\"autoLoad\": true,\
+\"author\": \"earngqqw\",\
+\"compass\": true,\
+\"preview\": \"preview\",\
+\"previewTitle\": \"${tours[index].name}\",\
+\"showControls\": false,\
+\"northOffset\": 31\
+},\"scenes\": {`
+  for (let i = 0; i < tours.length; i++) {
+    scene += `\"${tours[i].id}\": { \
+\"title\": \"${tours[i].name}\", \
+\"yaw\": ${tours[i].yaw}, \
+\"type\": \"equirectangular\", \
+\"panorama\": \"${tours[i].source}", \
+\"northOffset\": ${tours[i].north_offset}, \
+\"hotSpots\": [`
+    if (i == 0) {
+      scene += `{\
+\"yaw\": ${tours[i+1].yaw},\
+\"type\": \"scene\",\
+\"text\": \"${tours[i+1].name}\",\
+\"sceneId\": \"${tours[i+1].id}\",\
+\"targetYaw\": 0\
+}`
+    } else if (i != tours.length - 1) {
+      scene += `{\
+\"yaw\": ${tours[i + 1].yaw},\
+\"type\": \"scene\",\
+\"text\": \"${tours[i + 1].name}\",\
+\"sceneId\": \"${tours[i + 1].id}\" ,\
+\"targetYaw\": 0\
+}, {\
+\"yaw\": 180,\
+\"type\": \"scene\",\
+\"text\": \"${tours[i - 1].name}\",\
+\"sceneId\": \"${tours[i - 1].id}\",\
+\"targetYaw\": 180}`
+    } else {
+      scene += `{\
+\"yaw\": ${180 - tours[i-1].yaw},\
+\"type\": \"scene\",\
+\"text\": \"${tours[i-1].name}\",\
+\"sceneId\": \"${tours[i-1].id}\",\
+\"targetYaw\": 180\
+}`
+    }
+
+    if (i != tours.length - 1) {
+      scene += ']},'
+    } else {
+      scene += ']}'
+    }
+  }
+  scene += '}}'
+  // console.log(scene)
+  var json = JSON.parse(scene)
+
+  console.log(json)
+  return json
+}
+
 onMounted(async () => {
   loadmap()
   await imageStore.loadImage()
+  await imageStore.loadTour()
 })
 </script>
 

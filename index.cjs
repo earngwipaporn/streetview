@@ -36,3 +36,15 @@ app.get('/api/panorama', async (req, res) => {
 
     }
   });
+
+app.get('/api/tour', async (req, res) => {
+try{
+const results = await pool.query("SELECT id, name, encode(image, 'base64') AS image, lat, lon, yaw, type, source, north_offset FROM panorama_images WHERE type = 'tour' ORDER BY id ASC");
+const data = results.rows
+res.status(200).json({data});
+
+} catch (error) {
+res.json({error: error});
+
+}
+});
