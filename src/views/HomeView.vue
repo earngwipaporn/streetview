@@ -7,28 +7,58 @@ import { useImageStore } from '@/stores/image'
 const imageStore = useImageStore()
 const streetViewMode = ref(false)
 const mode = ref('point')
+const isLoading = ref(false)
 var map
 var viewer
+var images
+var tours
+var groupedByTourId
+var bPositionY = -200
+
 const loadmap = async () => {
   try {
     map = new sphere.Map({
       placeholder: document.getElementById('map')
     })
-    await map.goTo({ center: { lon: 100.928076, lat: 13.103024 }, zoom: 18 });
+    await map.goTo({ center: { lon: 100.578696, lat: 13.845183 }, zoom: 18 });
 
     document.getElementById('container').addEventListener('mouseup', async function (e) {
 
-      var current_scene = viewer.getScene()
-      setTimeout(async () => {
-        var new_scene = viewer.getScene()
+      var current_scene = Number(viewer.getScene())
 
+      setTimeout(async () => {
+        var new_scene = Number(viewer.getScene())
+        // กด hotspot เปลี่ยน scene ใหม่
+        map.Overlays.clear();
+        await pointmaker()
         if (current_scene != new_scene) {
-          for (let i = 0; i < imageStore.images.length; i++) {
-            if (imageStore.images[i].id == new_scene) {
-              map.Overlays.clear();
-              await pointmaker()
-              await personmaker(imageStore.images[i].lon, imageStore.images[i].lat)
-              
+          for (let i = 0; i < tours.length; i++) {
+            if (tours[i].id == new_scene) {
+
+              if (new_scene > current_scene) {
+                console.log('go', new_scene, '>', current_scene)
+                bPositionYChange(tours[i].north_offset)
+              }
+
+              // ถอยหลัง, สวนทาง ให้หมุนไปตรงข้าม
+              else if (new_scene < current_scene) {
+                console.log('back', tours[i].north_offset, tours[i].north_offset + 180, new_scene, '<', current_scene)
+                bPositionYChange(tours[i].north_offset + 180)
+              }
+              await personmaker(tours[i].lon, tours[i].lat)
+            }
+          }
+        } else if (current_scene == new_scene) {
+          for (let i = 0; i < tours.length; i++) {
+            if (tours[i].id == current_scene) {
+              console.log(viewer.getYaw())
+              var angle = await viewer.getYaw() + tours[i].north_offset
+              if (angle < 0) {
+                angle = await angle + 360
+              }
+              console.log(angle)
+              bPositionYChange(angle)
+              await personmaker(tours[i].lon, tours[i].lat)
             }
           }
         }
@@ -37,20 +67,16 @@ const loadmap = async () => {
     });
     map.Event.bind(sphere.EventName.OverlayClick, async function (e) {
       map.Overlays.clear();
+      document.getElementById('toast').style.display = "none"
       if (viewer) {
-        var load = await viewer.isLoaded()
-        console.log(load)
         await viewer.destroy()
         console.log('destroy')
       }
       await pointmaker()
-      console.log(e._geojson.geometry.coordinates[1], e._geojson.geometry.coordinates[0])
       document.getElementById("map").style.width = "50%"
       document.getElementById("container").style.display = "flex"
       document.getElementById("panorama").style.display = "flex"
-
       await loadPano(e._geojson.geometry.coordinates[1], e._geojson.geometry.coordinates[0]);
-
     });
   } catch (error) {
     console.log(error)
@@ -64,16 +90,16 @@ const loadPano = async (lat, lon) => {
   try {
 
     if (mode.value !== 'tour') {
-      await map.goTo({ center: { lon: Number(lon) + 0.001, lat: lat }, zoom: 18 });
+      await map.goTo({ center: { lon: 100.929076, lat: 13.103024 }, zoom: 18 });
       var image_source
       var image_name
-      for (let i = 0; i < imageStore.images.length; i++) {
-        // if (imageStore.images[i].type !== 'tour') {
-        if (lat === imageStore.images[i].lat && lon === imageStore.images[i].lon) {
-          image_source = await imageStore.images[i].image
-          image_name = await imageStore.images[i].name
+      var north_offset
+      for (let i = 0; i < images.length; i++) {
+        if (lat === images[i].lat && lon === images[i].lon) {
+          image_source = await images[i].image
+          image_name = await images[i].name
+          north_offset = await images[i].north_offset
         }
-        // }
       }
       viewer = pannellum.viewer('panorama', {
         "type": "equirectangular",
@@ -83,6 +109,7 @@ const loadPano = async (lat, lon) => {
         "showControls": false,
         "previewTitle": `${image_name}`,
         "previewAuthor": 'earngqqw',
+        "northOffset": north_offset,
         "hotSpotDebug": true,
       });
 
@@ -92,7 +119,7 @@ const loadPano = async (lat, lon) => {
         {
           title: 'test',
           icon: {
-            html: '<img src="/streetview/marker.png" style="width: 3rem">',
+            html: '<img src="/marker.png" style="width: 3rem">',
             offset: { x: 0, y: -30 }
           }
         });
@@ -102,196 +129,29 @@ const loadPano = async (lat, lon) => {
 
     // tour mode
     else {
-
-      var min_length = 10000
+      // สร้างเส้นสำหรับวัดระยะห่างจุดที่คลิกกับจุดข้อมูลเพื่อหาจุดข้อมูลที่ใกล้ที่สุด
+      var min_length = 90000000
       var index
-      for (let i = 0; i < imageStore.images.length; i++) {
-        if (imageStore.images[i].type === 'tour') {
-          var polyline = new sphere.Polyline([
-            { lon: lon, lat: lat },
-            { lon: imageStore.images[i].lon, lat: imageStore.images[i].lat },
-          ])
+      for (let i = 0; i < tours.length; i++) {
+        var polyline = await new sphere.Polyline([
+          { lon: lon, lat: lat },
+          { lon: Number(tours[i].lon), lat: Number(tours[i].lat) },
+        ])
 
-          const length = parseFloat(polyline.size('th').split(' ')[0] / 1000)
-          if (length < min_length) {
-            min_length = length
-            index = i
-          }
+        const length = parseFloat(polyline.size('th').split(' ')[0] / 1000)
+        if (length < min_length) {
+          min_length = length
+          index = i
         }
       }
 
-      await map.goTo({ center: { lon: Number(imageStore.images[index].lon) + 0.001, lat: imageStore.images[index].lat }, zoom: 18 });
+      await map.goTo({ center: { lon: Number(tours[index].lon) + 0.001, lat: tours[index].lat }, zoom: 18 });
 
       var scene = await create_pano_json(index)
-      console.log(scene)
-      viewer = pannellum.viewer('panorama', scene
-      // {
-      //   "default": {
-      //     "firstScene": `${imageStore.images[index].id}`,
-      //     "sceneFadeDuration": 1000,
-      //     "autoLoad": true,
-      //     "author": "earngqqw",
-      //     "compass": true,
-      //     "preview": 'preview',
-      //     "previewTitle": `${imageStore.images[index].name}`,
-      //     "showControls": false,
-      //     "northOffset": 31,
-      //   },
-
-      //   "scenes": {
-      //     [imageStore.images[4].id]: {
-      //       "title": `${imageStore.images[4].name}`,
-      //       "yaw": imageStore.images[4].yaw,
-      //       "type": "equirectangular",
-      //       "panorama": `${imageStore.images[4].image}`,
-      //       "northOffset": imageStore.images[4].yaw + 31,
-      //       "hotSpots": [
-      //         {
-      //           "yaw": imageStore.images[5].yaw,
-      //           "type": "scene",
-      //           "text": `${imageStore.images[5].name}`,
-      //           "sceneId": `${imageStore.images[5].id}`
-      //         }
-      //       ]
-      //     },
-
-      //     [imageStore.images[5].id]: {
-      //       "title": `${imageStore.images[5].name}`,
-      //       "yaw": imageStore.images[5].yaw,
-      //       "type": "equirectangular",
-      //       "panorama": `${imageStore.images[5].image}`,
-      //       "northOffset": imageStore.images[5].yaw + 31,
-      //       "hotSpots": [
-      //         {
-      //           "yaw": imageStore.images[6].yaw,
-      //           "type": "scene",
-      //           "text": `${imageStore.images[6].name}`,
-      //           "sceneId": `${imageStore.images[6].id}`
-      //         },
-      //         {
-      //           "yaw": 180 - imageStore.images[4].yaw,
-      //           "type": "scene",
-      //           "text": `${imageStore.images[4].name}`,
-      //           "sceneId": `${imageStore.images[4].id}`,
-      //           "targetYaw": 180
-      //         }
-
-      //       ]
-      //     },
-
-      //     [imageStore.images[6].id]: {
-      //       "title": `${imageStore.images[6].name}`,
-      //       "yaw": imageStore.images[6].yaw,
-      //       "type": "equirectangular",
-      //       "panorama": `${imageStore.images[6].image}`,
-      //       "northOffset": imageStore.images[6].yaw + 31,
-      //       "hotSpots": [
-      //         {
-      //           "yaw": 180 - imageStore.images[5].yaw,
-      //           "type": "scene",
-      //           "text": `${imageStore.images[5].name}`,
-      //           "sceneId": `${imageStore.images[5].id}`,
-      //           "targetYaw": 180,
-      //         },
-      //         {
-      //           "yaw": imageStore.images[7].yaw,
-      //           "type": "scene",
-      //           "text": `${imageStore.images[7].name}`,
-      //           "sceneId": `${imageStore.images[7].id}`,
-      //           "targetYaw": 0,
-      //         }
-      //       ]
-      //     },
-
-      //     [imageStore.images[7].id]: {
-      //       "title": `${imageStore.images[7].name}`,
-      //       "yaw": `${imageStore.images[7].yaw}`,
-      //       "type": "equirectangular",
-      //       "panorama": `${imageStore.images[7].image}`,
-      //       "northOffset": imageStore.images[7].yaw + 31,
-      //       "hotSpots": [
-      //         {
-      //           "yaw": 180 - imageStore.images[6].yaw,
-      //           "type": "scene",
-      //           "text": `${imageStore.images[6].name}`,
-      //           "sceneId": `${imageStore.images[6].id}`,
-      //           "targetYaw": 180 - imageStore.images[6].yaw,
-      //         },
-      //         {
-      //           "yaw": imageStore.images[8].yaw,
-      //           "type": "scene",
-      //           "text": `${imageStore.images[8].name}`,
-      //           "sceneId": `${imageStore.images[8].id}`,
-      //           "targetYaw": imageStore.images[8].yaw,
-      //         }
-      //       ]
-      //     },
-      //     [imageStore.images[8].id]: {
-      //       "title": `${imageStore.images[8].name}`,
-      //       "yaw": imageStore.images[8].yaw,
-      //       "type": "equirectangular",
-      //       "panorama": `${imageStore.images[8].image}`,
-      //       "northOffset": imageStore.images[7].yaw + 31,
-      //       "hotSpots": [
-      //         {
-      //           "yaw": imageStore.images[9].yaw,
-      //           "type": "scene",
-      //           "text": `${imageStore.images[9].name}`,
-      //           "sceneId": `${imageStore.images[9].id}`,
-      //           "targetYaw": imageStore.images[9].yaw,
-      //         },
-      //         {
-      //           "yaw": 180,
-      //           "type": "scene",
-      //           "text": `${imageStore.images[7].name}`,
-      //           "sceneId": `${imageStore.images[7].id}`,
-      //           "targetYaw": 180,
-      //         }
-      //       ]
-      //     },
-      //     [imageStore.images[9].id]: {
-      //       "title": `${imageStore.images[9].name}`,
-      //       "yaw": imageStore.images[9].yaw,
-      //       "type": "equirectangular",
-      //       "panorama": `${imageStore.images[9].image}`,
-      //       "northOffset": 31 + imageStore.images[7].yaw,
-      //       "hotSpots": [
-      //         {
-      //           "yaw": 180 - imageStore.images[8].yaw,
-      //           "type": "scene",
-      //           "text": `${imageStore.images[8].name}`,
-      //           "sceneId": `${imageStore.images[8].id}`,
-      //           "targetYaw": 180 - imageStore.images[8].yaw,
-      //         },
-      //         {
-      //           "yaw": imageStore.images[10].yaw,
-      //           "type": "scene",
-      //           "text": `${imageStore.images[10].name}`,
-      //           "sceneId": `${imageStore.images[10].id}`,
-      //           "targetYaw": 0,
-      //         }
-      //       ]
-      //     },
-      //     [imageStore.images[10].id]: {
-      //       "title": `${imageStore.images[10].name}`,
-      //       "yaw": imageStore.images[10].yaw,
-      //       "type": "equirectangular",
-      //       "panorama": `${imageStore.images[10].image}`,
-      //       "northOffset": (31 + imageStore.images[7].yaw + imageStore.images[10].yaw),
-      //       "hotSpots": [
-      //         {
-      //           "yaw": 180 - imageStore.images[9].yaw,
-      //           "type": "scene",
-      //           "text": `${imageStore.images[9].name}`,
-      //           "sceneId": `${imageStore.images[9].id}`,
-      //           "targetYaw": 180,
-      //         }
-      //       ]
-      //     }
-      //   }
-      // }
-      );
+      viewer = pannellum.viewer('panorama', scene);
       await personmaker(lon, lat)
+      bPositionYChange(tours[index].north_offset)
+      await personmaker(tours[index].lon, tours[index].lat)
     }
 
     // Make buttons work
@@ -333,6 +193,17 @@ const loadPano = async (lat, lon) => {
   }
 }
 
+const loadImage = async () => {
+
+  mode.value = 'point'
+  await map.goTo({ center: { lon: 100.928076, lat: 13.103024 }, zoom: 18 });
+
+  mapToggle()
+
+  await map.goTo({ center: { lon: 100.928076, lat: 13.103024 }, zoom: 18 });
+
+}
+
 const loadTour = async () => {
 
   mode.value = 'tour'
@@ -345,16 +216,50 @@ const loadTour = async () => {
 }
 
 const pointmaker = async () => {
-  for (let i = 0; i < imageStore.images.length; i++) {
-    var marker
-    marker = new sphere.Marker({ lon: imageStore.images[i].lon, lat: imageStore.images[i].lat },
-      {
-        title: `${imageStore.images[i].name}`,
-        icon: {
-          html: '<img src="/streetview/point.png" style="width: 1rem">'
-        }
-      });
-    await map.Overlays.add(marker);
+  if (mode.value === 'tour') {
+    var tours_length = tours.length
+    for (let i = 0; i < tours_length; i++) {
+      var marker
+      marker = await new sphere.Marker({ lon: tours[i].lon, lat: tours[i].lat },
+        {
+          title: `${tours[i].name}`,
+          icon: {
+            html: '<img src="/point.png" style="width: 1rem; opacity: 0;">'
+          }
+        });
+      await map.Overlays.add(marker);
+    }
+
+    //create line layer
+    for (let i = 0; i < groupedByTourId.length; i++) {
+      var line_coor = []
+      var length = groupedByTourId[i].length
+      for (let j = 0; j < length; j++) {
+        var coor = { lon: groupedByTourId[i][j].lon, lat: groupedByTourId[i][j].lat }
+        line_coor.push(coor)
+      }
+
+      var line = await new sphere.Polyline(line_coor, {
+        lineWidth: 8,
+        lineColor: 'rgba(0, 150, 200, 0.5)',
+        pointer: true,
+      })
+      await map.Overlays.add(line)
+    }
+  }
+  //point
+  else {
+    for (let i = 0; i < images.length; i++) {
+      var marker
+      marker = new sphere.Marker({ lon: images[i].lon, lat: images[i].lat },
+        {
+          title: `${images[i].name}`,
+          icon: {
+            html: '<img src="/point.png" style="width: 1rem;">'
+          }
+        });
+      await map.Overlays.add(marker);
+    }
   }
 }
 
@@ -364,13 +269,57 @@ const personmaker = async (lon, lat) => {
     {
       title: 'point',
       icon: {
-        html: '<img src="/streetview/person.png" style="width: 3rem;">',
+        html: `<div style="background-image: url(&quot;//api.longdo.com/pano/server/images/navi_360.png&quot;); 
+                    width: 50px; height: 50px; 
+                    background-size: 50px 1600px; 
+                    background-position-y:${bPositionY}px"></div>`,
         offset: { x: 0, y: -10 }
       },
       draggable: true
     });
 
   await map.Overlays.add(marker2);
+}
+
+const bPositionYChange = async (north_offset) => {
+  if (north_offset > 360) {
+    north_offset = await north_offset - 360
+  }
+  if (north_offset == 0) {
+    bPositionY = 800
+  } else if (north_offset > 0 && north_offset <= 22.5) {
+    bPositionY = 900
+  } else if (north_offset > 22.5 && north_offset <= 45) {
+    bPositionY = 1000
+  } else if (north_offset > 45 && north_offset <= 67.5) {
+    bPositionY = 1100
+  } else if (north_offset > 67.5 && north_offset <= 90) {
+    bPositionY = 1200
+  } else if (north_offset > 90 && north_offset <= 112.5) {
+    bPositionY = 1300
+  } else if (north_offset > 112.5 && north_offset <= 135) {
+    bPositionY = 1400
+  } else if (north_offset > 135 && north_offset <= 157.5) {
+    bPositionY = 1500
+  } else if (north_offset > 157.5 && north_offset <= 180) {
+    bPositionY = 1600
+  } else if (north_offset > 180 && north_offset <= 202.5) {
+    bPositionY = 100
+  } else if (north_offset > 202.5 && north_offset <= 225) {
+    bPositionY = 200
+  } else if (north_offset > 225 && north_offset <= 247.5) {
+    bPositionY = 300
+  } else if (north_offset > 247.5 && north_offset <= 270) {
+    bPositionY = 400
+  } else if (north_offset > 270 && north_offset <= 292.5) {
+    bPositionY = 500
+  } else if (north_offset > 292.5 && north_offset <= 315) {
+    bPositionY = 600
+  } else if (north_offset > 315 && north_offset <= 337.5) {
+    bPositionY = 700
+  } else if (north_offset > 337.5 && north_offset <= 360) {
+    bPositionY = 800
+  }
 }
 
 const mapToggle = () => {
@@ -393,14 +342,11 @@ const mapToggle = () => {
 
     var map_location = map.location()
     console.log(map_location)
-    map.goTo({ center: { lon: Number(map_location.lon) - 0.001, lat: map_location.lat }, zoom: 18 });
   }
 }
 
 const create_pano_json = (index) => {
-  var tours = imageStore.tours
-
-  var scene = `{"default": {"firstScene": ${tours[index].id},\
+  var scene = `{"default": {"firstScene": "${tours[index].id}",\
 \"sceneFadeDuration\": 1000,\
 \"autoLoad\": true,\
 \"author\": \"earngqqw\",\
@@ -408,72 +354,85 @@ const create_pano_json = (index) => {
 \"preview\": \"preview\",\
 \"previewTitle\": \"${tours[index].name}\",\
 \"showControls\": false,\
-\"northOffset\": 31\
+\"northOffset\": ${tours[index].north_offset}\
 },\"scenes\": {`
-  for (let i = 0; i < tours.length; i++) {
-    scene += `\"${tours[i].id}\": { \
-\"title\": \"${tours[i].name}\", \
-\"yaw\": ${tours[i].yaw}, \
+  for (let i = 0; i < groupedByTourId.length; i++) {
+    var length = groupedByTourId[i].length
+    for (let j = 0; j < length; j++) {
+      scene += `\"${groupedByTourId[i][j].id}\": { \
+\"title\": \"${groupedByTourId[i][j].name}\", \
+\"yaw\": ${groupedByTourId[i][j].yaw}, \
 \"type\": \"equirectangular\", \
-\"panorama\": \"${tours[i].source}", \
-\"northOffset\": ${tours[i].north_offset}, \
+\"panorama\": \"${JSON.stringify(groupedByTourId[i][j].image)}", \
+\"northOffset\": ${groupedByTourId[i][j].north_offset}, \
 \"hotSpots\": [`
-    if (i == 0) {
-      scene += `{\
-\"yaw\": ${tours[i+1].yaw},\
+
+      if (groupedByTourId[i][j].position == 'start') {
+        scene += `{\
+\"yaw\": ${groupedByTourId[i][j + 1].yaw},\
 \"type\": \"scene\",\
-\"text\": \"${tours[i+1].name}\",\
-\"sceneId\": \"${tours[i+1].id}\",\
+\"text\": \"${groupedByTourId[i][j + 1].name}\",\
+\"sceneId\": \"${groupedByTourId[i][j + 1].id}\",\
 \"targetYaw\": 0\
 }`
-    } else if (i != tours.length - 1) {
-      scene += `{\
-\"yaw\": ${tours[i + 1].yaw},\
+      } else if (groupedByTourId[i][j].position == 'between') {
+        scene += `{\
+\"yaw\": ${groupedByTourId[i][j + 1].yaw},\
 \"type\": \"scene\",\
-\"text\": \"${tours[i + 1].name}\",\
-\"sceneId\": \"${tours[i + 1].id}\" ,\
+\"text\": \"${groupedByTourId[i][j + 1].name}\",\
+\"sceneId\": \"${groupedByTourId[i][j + 1].id}\" ,\
 \"targetYaw\": 0\
 }, {\
 \"yaw\": 180,\
 \"type\": \"scene\",\
-\"text\": \"${tours[i - 1].name}\",\
-\"sceneId\": \"${tours[i - 1].id}\",\
+\"text\": \"${groupedByTourId[i][j - 1].name}\",\
+\"sceneId\": \"${groupedByTourId[i][j - 1].id}\",\
 \"targetYaw\": 180}`
-    } else {
-      scene += `{\
-\"yaw\": ${180 - tours[i-1].yaw},\
+      } else if (groupedByTourId[i][j].position == 'end') {
+        scene += `{\
+\"yaw\": ${180 - groupedByTourId[i][j - 1].yaw},\
 \"type\": \"scene\",\
-\"text\": \"${tours[i-1].name}\",\
-\"sceneId\": \"${tours[i-1].id}\",\
+\"text\": \"${groupedByTourId[i][j - 1].name}\",\
+\"sceneId\": \"${groupedByTourId[i][j - 1].id}\",\
 \"targetYaw\": 180\
 }`
-    }
+      }
 
-    if (i != tours.length - 1) {
-      scene += ']},'
-    } else {
-      scene += ']}'
+      if (i != groupedByTourId.length - 1) {
+        scene += ']},'
+      } else {
+        if (j != length - 1) {
+          scene += ']},'
+        }
+
+        else {
+          scene += ']}'
+        }
+      }
     }
   }
   scene += '}}'
-  // console.log(scene)
-  var json = JSON.parse(scene)
 
-  console.log(json)
+  var json = JSON.parse(scene)
   return json
 }
 
 onMounted(async () => {
+  isLoading.value = true
   loadmap()
-  await imageStore.loadImage()
-  await imageStore.loadTour()
+  images = await imageStore.loadImage()
+  tours = await imageStore.loadTour()
+  groupedByTourId = await imageStore.groupedByTourId
+  console.log(tours.length)
+  isLoading.value = false
 })
 </script>
 
 <template>
   <!-- map -->
+  <span v-if="isLoading" class="loader"></span>
   <div id="map">
-    <button class="person" @click="mapToggle"><img src="/person.png"></button>
+    <button class="person" @click="loadImage"><img src="/person.png"></button>
     <div class="hidepoint">Start streetview!</div>
     <div id="toast"><img src="/point.png">select a point where you want to see streetview</div>
     <button class="tour" @click="loadTour"><img src="/person.png"></button>
@@ -528,6 +487,51 @@ onMounted(async () => {
   height: 100%;
   top: 0;
   left: 0;
+}
+
+.loader {
+  width: 48px;
+  height: 48px;
+  border: 2px solid #bbdfee;
+  border-radius: 50%;
+  display: inline-block;
+  box-sizing: border-box;
+  animation: rotation 1s linear infinite;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 30;
+  display: flex;
+}
+
+.loader::after,
+.loader::before {
+  content: '';
+  box-sizing: border-box;
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: #2e4683;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.loader::before {
+  left: auto;
+  top: auto;
+  right: 0;
+  bottom: 0;
+}
+
+@keyframes rotation {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 img {
@@ -631,13 +635,6 @@ img {
   z-index: 30;
 }
 
-/* .custom-hotspot {
-  background-image: url('/point.png');
-  height: 50px;
-  width: 50px;
-  background-color: rgb(255, 247, 216);
-} */
-
 .person {
   position: absolute;
   padding: 0px 2px 0px 2px;
@@ -712,5 +709,4 @@ img {
 
 .tour:hover+.hidetour {
   display: block;
-}
-</style>
+}</style>
